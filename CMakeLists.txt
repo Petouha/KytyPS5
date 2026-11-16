@@ -459,6 +459,17 @@ target_include_directories(slot_vector_tests PRIVATE ${inc_headers})
 add_executable(common_tests EXCLUDE_FROM_ALL "${KYTY_TESTS_DIR}/CommonTests.cpp")
 target_link_libraries(common_tests common kyty_test_gtest)
 
+# kyty_log_analyzer's parser/analyzer are pure functions (no emulator state),
+# so this links none of kyty_emulator_link_libraries, just gtest and the two
+# small libraries the tool itself uses.
+add_executable(log_analyzer_tests EXCLUDE_FROM_ALL
+	"${KYTY_TESTS_DIR}/LogAnalyzerTests.cpp"
+	"${KYTY_SOURCE_DIR}/log_analyzer/parser.cpp"
+	"${KYTY_SOURCE_DIR}/log_analyzer/analyzer.cpp"
+)
+target_link_libraries(log_analyzer_tests fmt::fmt nlohmann_json::nlohmann_json kyty_test_gtest)
+target_include_directories(log_analyzer_tests PRIVATE ${inc_headers})
+
 add_executable(ime_dialog_tests EXCLUDE_FROM_ALL
 	"${KYTY_TESTS_DIR}/ImeDialogTests.cpp"
 	"${KYTY_SOURCE_DIR}/libs/imeCommon.cpp"
@@ -708,6 +719,7 @@ if(BUILD_TESTING)
 	add_test(NAME bit_array COMMAND $<TARGET_FILE:bit_array_tests>)
 	add_test(NAME lru_cache COMMAND $<TARGET_FILE:lru_cache_tests>)
 	add_test(NAME common COMMAND $<TARGET_FILE:common_tests>)
+	add_test(NAME log_analyzer COMMAND $<TARGET_FILE:log_analyzer_tests>)
 	add_test(NAME shader_vertex_metadata COMMAND $<TARGET_FILE:shader_vertex_metadata_tests>)
 	add_test(NAME resource_materialization COMMAND $<TARGET_FILE:resource_materialization_tests>)
 	add_test(NAME resource_tracking COMMAND $<TARGET_FILE:resource_tracking_tests>)
@@ -827,6 +839,7 @@ if(BUILD_TESTING)
 		bit_array_tests
 		lru_cache_tests
 		common_tests
+		log_analyzer_tests
 		shader_vertex_metadata_tests
 		resource_materialization_tests
 		resource_tracking_tests
@@ -965,6 +978,21 @@ if(APPLE)
 endif()
 
 install(TARGETS kyty_emulator DESTINATION .)
+
+# Standalone CLI (issue #622, Phase 1): reads a _kyty.txt log and prints a
+# summary of its fatal crashes and unresolved imports. It only reads text,
+# so it does not link kyty_emulator_link_libraries and has none of the
+# emulator's own dependencies (Vulkan, SDL, FFmpeg, ...). It builds and runs
+# independently of kyty_emulator and of KYTY_BUILD_LAUNCHER.
+add_executable(kyty_log_analyzer
+	"${KYTY_SOURCE_DIR}/log_analyzer/parser.cpp"
+	"${KYTY_SOURCE_DIR}/log_analyzer/analyzer.cpp"
+	"${KYTY_SOURCE_DIR}/log_analyzer/main.cpp"
+)
+target_link_libraries(kyty_log_analyzer fmt::fmt nlohmann_json::nlohmann_json)
+target_include_directories(kyty_log_analyzer PRIVATE ${inc_headers})
+install(TARGETS kyty_log_analyzer DESTINATION .)
+
 if(KYTY_BUILD_LAUNCHER)
 	add_subdirectory("${KYTY_SOURCE_DIR}/launcher" "${CMAKE_CURRENT_BINARY_DIR}/launcher")
 
